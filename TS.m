@@ -112,6 +112,11 @@ classdef TS
         end
 
         %%% Domain operations.
+        % getDomain() - return a row vector containing the domain index.
+        function y = getDomain(obj)
+            y = linspace(obj.l, obj.r, (obj.r - obj.l) * obj.fs + 1);
+            y = y(1 : end - 1);
+        end
         % cut({l, r}) - [l, r), the part out of range will be filled
         %               with 0.
         function y = cut(obj, mLR)
@@ -125,14 +130,16 @@ classdef TS
             yValue = [zeros(1, max(0, 1 - lo)), yValue, zeros(1, max(0, ro - n))];
             y = TS({mLR{1}, mLR{2}}, yValue, obj.fs);
         end
+        % reverse() - x(t) -> x(-t).
+        function y = reverse(obj)
+            y = TS({-obj.r, -obj.l}, obj.value(end : -1 : 1), obj.fs);
+        end
         % shift(t0) - x(t) -> x(t - t0). t0 is a integer.
         function y = shift(obj, mT)
             if fix(mT) ~= mT
                 error("'t0' should be a integer.");
             end
-            y = obj;
-            y.l = y.l - mT;
-            y.r = y.r - mT;
+            y = TS({obj.l - mT, obj.r - mT}, obj.value, obj.fs);
         end
         % lerpShift(t0) - t0 is real.
         function y = lerpShift(obj, mT)
@@ -163,8 +170,9 @@ classdef TS
         function y = mtimes(mA, mB)                                         % *  : Convolution
             if class(mA) == "double" || class(mB) == "double"
                 y = mA .* mB;
+            else
+                y = TS.Convolution(mA, mB);
             end
-            y = TS.Convolution(mA, mB);
         end
         function y = rdivide(mA, mB)                                        % ./ : Right division
             [A, B] = convertScalar(mA, mB);
