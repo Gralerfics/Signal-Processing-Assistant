@@ -57,19 +57,16 @@ classdef TS
             narginchk(1, 3);
             if class(varargin{1}) == "cell"
                 narginchk(2, 3);
-
                 if nargin == 3
                     obj.fs = varargin{3};
                 else
                     obj.fs = 1;
                 end
-
                 if length(varargin{2}) == 1 && length(varargin{1}) == 2
                     obj.value = varargin{2} * ones(1, (varargin{1}{2} - varargin{1}{1}) * obj.fs);
                 else
                     obj.value = varargin{2};
                 end
-
                 obj.l = varargin{1}{1};
                 if length(varargin{1}) == 2
                     obj.r = varargin{1}{2};
@@ -79,7 +76,6 @@ classdef TS
                 else
                     obj.r = obj.l + length(obj.value) / obj.fs;
                 end
-
                 if length(obj.value) ~= (obj.r - obj.l) * obj.fs
                     error("Wrong length of 'value'");
                 end
@@ -129,6 +125,23 @@ classdef TS
             yValue = [zeros(1, max(0, 1 - lo)), yValue, zeros(1, max(0, ro - n))];
             y = TS({mLR{1}, mLR{2}}, yValue, obj.fs);
         end
+        % shift(t0) - x(t) -> x(t - t0). t0 is a integer.
+        function y = shift(obj, mT)
+            if fix(mT) ~= mT
+                error("'t0' should be a integer.");
+            end
+            y = obj;
+            y.l = y.l - mT;
+            y.r = y.r - mT;
+        end
+        % lerpShift(t0) - t0 is real.
+        function y = lerpShift(obj, mT)
+            % TODO
+        end
+        % lerpFs(newFs) - change sampling frequency with interpolation.
+        function y = lerpFs(obj, mFs)
+            % TODO
+        end
 
         %%% Operations.
         function y = plus(mA, mB)                                           % +  : Addition
@@ -169,6 +182,14 @@ classdef TS
             for I = 2 : mB
                 y = y * mA;
             end
+        end
+        function y = uniFunc(obj, name)                                     % func(s)
+            y = obj;
+            y.value = eval(name + "(y.value)");
+        end
+        function y = diaFunc(obj, name, arg)                                % func(s, arg0)
+            y = obj;
+            y.value = eval(name + "(y.value, arg)");
         end
     end
 
