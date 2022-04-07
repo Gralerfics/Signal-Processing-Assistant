@@ -193,6 +193,19 @@ classdef TS
             mLR = varargin{1};
             y = TS(mLR, 1, yFs).cut({min(0, mLR{2}), mLR{2}}).cut(mLR);
         end
+        % Impulse({l, r}, [fs]) - y = δ(t), y = δ[n].
+        function y = Impulse(varargin)
+            if nargin == 2; yFs = varargin{2}; else; yFs = 1; end
+            if length(varargin{1}) ~= 2
+                error("'mLR' should be a cell array contains l and r.");
+            end
+            mLR = varargin{1};
+            y = TS(mLR, 0, yFs);
+            p = 1 - mLR{1} * yFs;
+            if p >= 1 && p <= length(y.value)
+                y.value(p) = yFs;
+            end
+        end
 
         %%% Operations
         % Convolution(mA, mB) - mA * mB. Remenber ./ fs.
