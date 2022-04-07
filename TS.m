@@ -174,9 +174,19 @@ classdef TS
 
     methods (Static)                                                        % Static methods.
         % Specific signals
-        % Identity({l, r}) - y = x.
-        function Identity(mLR)
-
+        % Identity({l, r}, [fs]) - y = x.
+        function y = Identity(varargin)
+            if nargin == 2
+                yFs = varargin{2};
+            else
+                yFs = 1;
+            end
+            if length(varargin{1}) ~= 2
+                error("'mLR' should be a cell array contains l and r.");
+            end
+            mLR = varargin{1};
+            yValueT = linspace(mLR{1}, mLR{2}, (mLR{2} - mLR{1}) * yFs + 1);
+            y = TS(varargin{1}, yValueT(1 : end - 1), yFs);
         end
 
         % Operations
