@@ -1,17 +1,21 @@
+% By Gralerfics
 classdef TS
     properties                                                              % Properties.
-        l                                                                       % Left border.
-        r                                                                       % Right border. [l, r)
-        fs                                                                      % Sampling frequency, = 1 indicates discrete-time.
-        value                                                                   % Signal value, length = (r - l) * fs.
+        l       % Left border.
+        r       % Right border. [l, r)
+        fs      % Sampling frequency, = 1 indicates discrete-time.
+        value   % Signal value, length = (r - l) * fs.
     end
     
     methods (Access = private)                                              % Inline methods.
+        % Elementary operation, func = @(a, b) a ? b.
+        function elementaryOperation(A, B, func)
 
+        end
     end
 
     methods                                                                 % Member methods.
-        % Construction method.
+        %%% Construction methods.
             % TS({l, r}, value, [fs]) - All parameters.
                 % value can be a scalar.
             % TS({l}, value, [fs])    - Automatically generate r.
@@ -37,6 +41,9 @@ classdef TS
                 obj.l = varargin{1}{1};
                 if length(varargin{1}) == 2
                     obj.r = varargin{1}{2};
+                    if obj.r < obj.l
+                        error("'l' should be smaller than 'r'.");
+                    end
                 else
                     obj.r = obj.l + length(obj.value) / obj.fs;
                 end
@@ -53,7 +60,7 @@ classdef TS
             end
         end
 
-        % Getter and setter.
+        %%% Getters and setters.
         function obj = set.l(obj, mL)
             if fix(mL) == mL
                 obj.l = mL;
@@ -74,6 +81,36 @@ classdef TS
             else
                 error("'fs' should be a positive integer.");
             end
+        end
+
+        %%% Domain operations.
+        % cut({l, r}) - [l, r), the part out of range will be filled
+        %               with 0.
+        function y = cut(obj, mLR)
+            lo = (mLR{1} - obj.l) * obj.fs + 1;
+            ro = (mLR{2} - obj.l) * obj.fs;
+            n = length(obj.value);
+            yValue = obj.value(max(1, lo) : min(n, ro));
+            yValue = [zeros(1, max(0, 1 - lo)), yValue, zeros(1, max(0, ro - n))];
+            y = TS({mLR{1}, mLR{2}}, yValue, obj.fs);
+        end
+
+        %%% Operations.
+        function y = plus(A, B)                                             % +  : Addition
+        end
+        function y = minus(A, B)                                            % -  : Subtraction
+        end
+        function y = uminus(A)                                              % -  : Opposite
+        end
+        function y = times(A, B)                                            % .* : Multiplication
+        end
+        function y = mtimes(A, B)                                           % *  : Convolution
+        end
+        function y = rdivide(A, B)                                          % ./ : Right division
+        end
+        function y = power(A, B)                                            % .^ : Power
+        end
+        function y = mpower(A, B)                                           % ^  : Multi-convolution
         end
     end
 
