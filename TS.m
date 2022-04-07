@@ -173,23 +173,28 @@ classdef TS
     end
 
     methods (Static)                                                        % Static methods.
-        % Specific signals
-        % Identity({l, r}, [fs]) - y = x.
+        %%% Specific signals
+        % Identity({l, r}, [fs]) - y = t, y = n.
         function y = Identity(varargin)
-            if nargin == 2
-                yFs = varargin{2};
-            else
-                yFs = 1;
-            end
+            if nargin == 2; yFs = varargin{2}; else; yFs = 1; end
             if length(varargin{1}) ~= 2
                 error("'mLR' should be a cell array contains l and r.");
             end
             mLR = varargin{1};
             yValueT = linspace(mLR{1}, mLR{2}, (mLR{2} - mLR{1}) * yFs + 1);
-            y = TS(varargin{1}, yValueT(1 : end - 1), yFs);
+            y = TS(mLR, yValueT(1 : end - 1), yFs);
+        end
+        % Step({l, r}, [fs]) - y = u(t), y = u[n].
+        function y = Step(varargin)
+            if nargin == 2; yFs = varargin{2}; else; yFs = 1; end
+            if length(varargin{1}) ~= 2
+                error("'mLR' should be a cell array contains l and r.");
+            end
+            mLR = varargin{1};
+            y = TS(mLR, 1, yFs).cut({min(0, mLR{2}), mLR{2}}).cut(mLR);
         end
 
-        % Operations
+        %%% Operations
         % Convolution(mA, mB) - mA * mB. Remenber ./ fs.
         function y = Convolution(mA, mB)
             if class(mA) ~= "TS" || class(mB) ~= "TS"
