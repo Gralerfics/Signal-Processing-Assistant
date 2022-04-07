@@ -8,10 +8,42 @@ classdef TS
     end
     
     methods (Access = private)                                              % Inline methods.
-        % Elementary operation, func = @(a, b) a ? b.
-        function elementaryOperation(A, B, func)
-
+        % Fs equality checker.
+        function flag = checkFs(A, B)
+            if class(A) ~= "TS" || class(B) ~= "TS"
+                error("'A' and 'B' should be time signals(TS).");
+            end
+            flag = (A.fs == B.fs);
         end
+
+        % Elementary operation, func = @(a, b) a ? b.
+        function y = elementaryOperation(A, B, func)
+            if class(A) ~= "TS" || class(B) ~= "TS"
+                error("'A' and 'B' should be time signals(TS).");
+            end
+            if ~checkFs(A, B)
+                error("'A' and 'B' should have the same sampling frequency(fs).");
+            end
+            L = min(A.l, B.l);
+            R = max(A.r, B.r);
+            yValue = func(A.cut({L, R}).value, B.cut({L, R}).value);
+            y = TS({L, R}, yValue, A.fs);
+        end
+
+        % Scalar convertor. mA and mB will not be both doubles.
+        function [A, B] = convertScalar(mA, mB)
+            if class(mA) == "double"
+                A = TS({mB.l, mB.r}, mA, mB.fs);
+            else
+                A = mA;
+            end
+            if class(mB) == "double"
+                B = TS({mA.l, mA.r}, mB, mA.fs);
+            else
+                B = mB;
+            end
+        end
+
     end
 
     methods                                                                 % Member methods.
@@ -87,6 +119,9 @@ classdef TS
         % cut({l, r}) - [l, r), the part out of range will be filled
         %               with 0.
         function y = cut(obj, mLR)
+            if length(mLR) ~= 2 || class(mLR) ~= "cell"
+                error("'mLR' should be a cell array contains l and r.");
+            end
             lo = (mLR{1} - obj.l) * obj.fs + 1;
             ro = (mLR{2} - obj.l) * obj.fs;
             n = length(obj.value);
@@ -96,25 +131,64 @@ classdef TS
         end
 
         %%% Operations.
-        function y = plus(A, B)                                             % +  : Addition
+        function y = plus(mA, mB)                                           % +  : Addition
+            [A, B] = convertScalar(mA, mB);
+            y = elementaryOperation(A, B, @(a, b) a + b);
         end
-        function y = minus(A, B)                                            % -  : Subtraction
+        function y = minus(mA, mB)                                          % -  : Subtraction
+            [A, B] = convertScalar(mA, mB);
+            y = elementaryOperation(A, B, @(a, b) a - b);
         end
-        function y = uminus(A)                                              % -  : Opposite
+        function y = uminus(mA)                                             % -  : Opposite
+            y = mA;
+            y.value = -y.value;
         end
-        function y = times(A, B)                                            % .* : Multiplication
+        function y = times(mA, mB)                                          % .* : Multiplication
+            [A, B] = convertScalar(mA, mB);
+            y = elementaryOperation(A, B, @(a, b) a .* b);
         end
-        function y = mtimes(A, B)                                           % *  : Convolution
+        function y = mtimes(mA, mB)                                         % *  : Convolution
+            if class(mA) == "double" || class(mB) == "double"
+                y = mA .* mB;
+            end
+            y = TS.Convolution(mA, mB);
         end
-        function y = rdivide(A, B)                                          % ./ : Right division
+        function y = rdivide(mA, mB)                                        % ./ : Right division
+            [A, B] = convertScalar(mA, mB);
+            y = elementaryOperation(A, B, @(a, b) a ./ b);
         end
-        function y = power(A, B)                                            % .^ : Power
+        function y = power(mA, mB)                                          % .^ : Power
+            [A, B] = convertScalar(mA, mB);
+            y = elementaryOperation(A, B, @(a, b) a .^ b);
         end
-        function y = mpower(A, B)                                           % ^  : Multi-convolution
+        function y = mpower(mA, mB)                                         % ^  : Multi-convolution
+            if class(mB) ~= "double" || fix(mB) ~= mB || B < 1
+                error("'B' should be a positive integer.");
+            end
+            y = mA;
+            for I = 2 : mB
+                y = y * mA;
+            end
         end
     end
 
     methods (Static)                                                        % Static methods.
+        % Specific signals
+        % Identity({l, r}) - y = x.
+        function Identity(mLR)
 
+        end
+
+        % Operations
+        % Convolution(mA, mB) - mA * mB. Remenber ./ fs.
+        function y = Convolution(mA, mB)
+            if class(mA) ~= "TS" || class(mB) ~= "TS"
+                error("'A' and 'B' should be time signals(TS).");
+            end
+            if ~checkFs(mA, mB)
+                error("'A' and 'B' should have the same sampling frequency(fs).");
+            end
+            y = TS({mA.l + mB.l, mA.r + mB.r}, [conv(mA.value, mB.value), 0] ./ mA.fs, mA.fs);
+        end
     end
 end
