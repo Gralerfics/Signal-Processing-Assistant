@@ -1,90 +1,98 @@
+% Spectrum Class
 % By Gralerfics
-classdef TS
+classdef Spectrum
     properties                                                              % Properties.
         l       % Left border.
         r       % Right border. [l, r)
-        fs      % Sampling frequency, = 1 indicates discrete-time.
+        unit    % the length of "1".
+        fs      % Sampling frequency, = 1 indicates discrete-time. dx = unit / fs.
         value   % Signal value, length = (r - l) * fs.
     end
     
     methods (Access = private)                                              % Inline methods.
         % Fs equality checker.
         function flag = checkFs(A, B)
-            if class(A) ~= "TS" || class(B) ~= "TS"
-                error("'A' and 'B' should be time signals(TS).");
+            if ~isa(A, "Spectrum") || ~isa(B, "Spectrum")
+                error("'A' and 'B' should be spectrums(Spectrum).");
             end
             flag = (A.fs == B.fs);
         end
 
+        % Unit length equality checker.
+        function flag = checkUnit(A, B)
+            if ~isa(A, "Spectrum") || ~isa(B, "Spectrum")
+                error("'A' and 'B' should be spectrums(Spectrum).");
+            end
+            flag = (A.unit == B.unit);
+        end
+
         % Elementary operation, func = @(a, b) a ? b.
         function y = elementaryOperation(A, B, func)
-            if class(A) ~= "TS" || class(B) ~= "TS"
-                error("'A' and 'B' should be time signals(TS).");
-            end
             if ~checkFs(A, B)
                 error("'A' and 'B' should have the same sampling frequency(fs).");
+            end
+            if ~checkUnit(A, B)
+                error("'A' and 'B' should have the unit length(unit).");
             end
             L = min(A.l, B.l);
             R = max(A.r, B.r);
             yValue = func(A.cut({L, R}).value, B.cut({L, R}).value);
-            y = TS({L, R}, yValue, A.fs);
+            y = Spectrum({L, R}, yValue, A.fs, A.unit);
         end
 
         % Scalar convertor. mA and mB will not be both doubles.
         function [A, B] = convertScalar(mA, mB)
-            if class(mA) == "double"
-                A = TS({mB.l, mB.r}, mA, mB.fs);
+            if isa(mA, "double")
+                A = Spectrum({mB.l, mB.r}, mA, mB.fs, mB.unit);
             else
                 A = mA;
             end
-            if class(mB) == "double"
-                B = TS({mA.l, mA.r}, mB, mA.fs);
+            if isa(mB, "double")
+                B = Spectrum({mA.l, mA.r}, mB, mA.fs, mA.unit);
             else
                 B = mB;
             end
         end
-
     end
 
     methods                                                                 % Member methods.
         %%% Construction methods.
-            % TS({l, r}, value, [fs]) - All parameters.
+            % Spectrum({l, r}, value, [fs], [unit]) - All parameters.
                 % value can be a scalar.
-            % TS({l}, value, [fs])    - Automatically generate r.
-            % TS(value, [fs])         - Default l = 0.
-            % TS(ts)                  - Copy.
-        function obj = TS(varargin)
-            narginchk(1, 3);
-            if class(varargin{1}) == "cell"
-                narginchk(2, 3);
-                if nargin == 3
-                    obj.fs = varargin{3};
-                else
-                    obj.fs = 1;
+                % [fs = 1], [unit = 1].
+            % Spectrum({l}, value, [fs], [unit])    - Automatically generate r.
+            % Spectrum(value, [fs], [unit])         - Default l = 0.
+            % Spectrum(s)                           - Copy.
+        function obj = Spectrum(varargin)
+            % Construct parameter list
+            if isa(varargin{1}, "double")
+                args = [{{0}}, varargin];
+            elseif isa(varargin{1}, "cell")
+                args = varargin;
+            elseif isa(varargin{1}, "Spectrum")
+                s = varargin{1};
+                args = {{s.l, s.r}, s.value, s.fs, s.unit};
+            end
+            % Optional fs and unit
+            if length(args) >= 3; obj.fs = args{3}; else; obj.fs = 1; end
+            if length(args) >= 4; obj.unit = args{4}; else; obj.unit = 1; end
+            % Construct value, l and r
+            if length(args{2}) == 1 && length(args{1}) == 2
+                obj.value = args{2} * ones(1, (args{1}{2} - args{1}{1}) * obj.fs);
+            else
+                obj.value = args{2};
+            end
+            obj.l = args{1}{1};
+            if length(args{1}) == 2
+                obj.r = args{1}{2};
+                if obj.r < obj.l
+                    error("'l' should be smaller than 'r'.");
                 end
-                if length(varargin{2}) == 1 && length(varargin{1}) == 2
-                    obj.value = varargin{2} * ones(1, (varargin{1}{2} - varargin{1}{1}) * obj.fs);
-                else
-                    obj.value = varargin{2};
-                end
-                obj.l = varargin{1}{1};
-                if length(varargin{1}) == 2
-                    obj.r = varargin{1}{2};
-                    if obj.r < obj.l
-                        error("'l' should be smaller than 'r'.");
-                    end
-                else
-                    obj.r = obj.l + length(obj.value) / obj.fs;
-                end
-                if length(obj.value) ~= (obj.r - obj.l) * obj.fs
-                    error("Wrong length of 'value'");
-                end
-            elseif class(varargin{1}) == "TS"
-                narginchk(1, 1);
-                obj = varargin{1};
-            elseif class(varargin{1}) == "double"
-                narginchk(1, 2);
-                obj = TS({0}, varargin{:});
+            else
+                obj.r = obj.l + length(obj.value) / obj.fs;
+            end
+            if length(obj.value) ~= (obj.r - obj.l) * obj.fs
+                error("Wrong length of 'value'");
             end
         end
 
@@ -110,17 +118,25 @@ classdef TS
                 error("'fs' should be a positive integer.");
             end
         end
+        function obj = set.unit(obj, mUnit)
+            if mUnit > 0
+                obj.unit = mUnit;
+            else
+                error("'unit' should be a positive number.");
+            end
+        end
 
         %%% Domain operations.
         % getDomain() - return a row vector containing the domain index.
+        %               Remember to * unit.
         function y = getDomain(obj)
-            y = linspace(obj.l, obj.r, (obj.r - obj.l) * obj.fs + 1);
+            y = linspace(obj.l * obj.unit, obj.r * obj.unit, (obj.r - obj.l) * obj.fs + 1);
             y = y(1 : end - 1);
         end
         % cut({l, r}) - [l, r), the part out of range will be filled
         %               with 0.
         function y = cut(obj, mLR)
-            if length(mLR) ~= 2 || class(mLR) ~= "cell"
+            if length(mLR) ~= 2 || ~isa(mLR, "cell")
                 error("'mLR' should be a cell array contains l and r.");
             end
             lo = (mLR{1} - obj.l) * obj.fs + 1;
@@ -128,18 +144,18 @@ classdef TS
             n = length(obj.value);
             yValue = obj.value(max(1, lo) : min(n, ro));
             yValue = [zeros(1, max(0, 1 - lo)), yValue, zeros(1, max(0, ro - n))];
-            y = TS({mLR{1}, mLR{2}}, yValue, obj.fs);
+            y = Spectrum({mLR{1}, mLR{2}}, yValue, obj.fs, obj.unit);
         end
         % reverse() - x(t) -> x(-t).
         function y = reverse(obj)
-            y = TS({-obj.r, -obj.l}, obj.value(end : -1 : 1), obj.fs);
+            y = Spectrum({-obj.r, -obj.l}, obj.value(end : -1 : 1), obj.fs, obj.unit);
         end
         % shift(t0) - x(t) -> x(t - t0). t0 is a integer.
         function y = shift(obj, mT)
             if fix(mT) ~= mT
                 error("'t0' should be a integer.");
             end
-            y = TS({obj.l - mT, obj.r - mT}, obj.value, obj.fs);
+            y = Spectrum({obj.l - mT, obj.r - mT}, obj.value, obj.fs, obj.unit);
         end
         % lerpShift(t0) - t0 is real.
         function y = lerpShift(obj, mT)
@@ -168,10 +184,10 @@ classdef TS
             y = elementaryOperation(A, B, @(a, b) a .* b);
         end
         function y = mtimes(mA, mB)                                         % *  : Convolution
-            if class(mA) == "double" || class(mB) == "double"
+            if isa(mA, "double") || isa(mB, "double")
                 y = mA .* mB;
             else
-                y = TS.Convolution(mA, mB);
+                y = Spectrum.Convolution(mA, mB);
             end
         end
         function y = rdivide(mA, mB)                                        % ./ : Right division
@@ -183,7 +199,7 @@ classdef TS
             y = elementaryOperation(A, B, @(a, b) a .^ b);
         end
         function y = mpower(mA, mB)                                         % ^  : Multi-convolution
-            if class(mB) ~= "double" || fix(mB) ~= mB || B < 1
+            if ~isa(mB, "double") || fix(mB) ~= mB || B < 1
                 error("'B' should be a positive integer.");
             end
             y = mA;
@@ -202,50 +218,53 @@ classdef TS
     end
 
     methods (Static)                                                        % Static methods.
-        %%% Specific signals
-        % Identity({l, r}, [fs]) - y = t, y = n.
+        %%% Specific signals.
+        % Identity({l, r}, [fs], [unit]) - y = t, y = n.
         function y = Identity(varargin)
-            if nargin == 2; yFs = varargin{2}; else; yFs = 1; end
+            if nargin >= 2; yFs = varargin{2}; else; yFs = 1; end
+            if nargin >= 3; yUnit = varargin{3}; else; yUnit = 1; end
             if length(varargin{1}) ~= 2
                 error("'mLR' should be a cell array contains l and r.");
             end
             mLR = varargin{1};
-            yValueT = linspace(mLR{1}, mLR{2}, (mLR{2} - mLR{1}) * yFs + 1);
-            y = TS(mLR, yValueT(1 : end - 1), yFs);
+            y = Spectrum(mLR, 0, yFs, yUnit);
+            y.value = y.getDomain;
         end
-        % Step({l, r}, [fs]) - y = u(t), y = u[n].
+        % Step({l, r}, [fs], [unit]) - y = u(t), y = u[n].
         function y = Step(varargin)
-            if nargin == 2; yFs = varargin{2}; else; yFs = 1; end
+            if nargin >= 2; yFs = varargin{2}; else; yFs = 1; end
+            if nargin >= 3; yUnit = varargin{3}; else; yUnit = 1; end
             if length(varargin{1}) ~= 2
                 error("'mLR' should be a cell array contains l and r.");
             end
             mLR = varargin{1};
-            y = TS(mLR, 1, yFs).cut({min(0, mLR{2}), mLR{2}}).cut(mLR);
+            y = Spectrum(mLR, 1, yFs, yUnit).cut({min(0, mLR{2}), mLR{2}}).cut(mLR);
         end
-        % Impulse({l, r}, [fs]) - y = δ(t), y = δ[n].
+        % Impulse({l, r}, [fs], [unit]) - y = δ(t), y = δ[n].
         function y = Impulse(varargin)
-            if nargin == 2; yFs = varargin{2}; else; yFs = 1; end
+            if nargin >= 2; yFs = varargin{2}; else; yFs = 1; end
+            if nargin >= 3; yUnit = varargin{3}; else; yUnit = 1; end
             if length(varargin{1}) ~= 2
                 error("'mLR' should be a cell array contains l and r.");
             end
             mLR = varargin{1};
-            y = TS(mLR, 0, yFs);
+            y = Spectrum(mLR, 0, yFs, yUnit);
             p = 1 - mLR{1} * yFs;
             if p >= 1 && p <= length(y.value)
-                y.value(p) = yFs;
+                y.value(p) = yFs / yUnit;
             end
         end
 
-        %%% Operations
+        %%% Operations.
         % Convolution(mA, mB) - mA * mB. Remenber ./ fs.
         function y = Convolution(mA, mB)
-            if class(mA) ~= "TS" || class(mB) ~= "TS"
-                error("'A' and 'B' should be time signals(TS).");
-            end
             if ~checkFs(mA, mB)
                 error("'A' and 'B' should have the same sampling frequency(fs).");
             end
-            y = TS({mA.l + mB.l, mA.r + mB.r}, [conv(mA.value, mB.value), 0] ./ mA.fs, mA.fs);
+            if ~checkUnit(mA, mB)
+                error("'A' and 'B' should have the unit length(unit).");
+            end
+            y = Spectrum({mA.l + mB.l, mA.r + mB.r}, [conv(mA.value, mB.value), 0] ./ mA.fs, mA.fs, mA.unit);
         end
     end
 end
