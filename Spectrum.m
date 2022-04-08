@@ -157,6 +157,14 @@ classdef Spectrum
             end
             y = Spectrum({obj.l - mT, obj.r - mT}, obj.value, obj.fs, obj.unit);
         end
+        % toPeriod() - normalize the signal into a period beginning at 0.
+        function y = toPeriod(obj)
+            y = obj.getPeriod(0);
+        end
+        % getPeriod(t) - get the period beginning at t.
+        function y = getPeriod(obj, mT)
+            y = Spectrum({mT}, circshift(obj.value, (obj.l - mT) * obj.fs), obj.fs, obj.unit);
+        end
         % lerpShift(t0) - t0 is real.
         function y = lerpShift(obj, mT)
             % TODO
